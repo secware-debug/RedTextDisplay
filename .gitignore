@@ -44,6 +44,8 @@ $RECYCLE.BIN/
 
 # Ignore Visual Studio working files
 .vs/
+Release/
+x64/
 
 # Ignore crash reports and debug files
 *.stackdump
