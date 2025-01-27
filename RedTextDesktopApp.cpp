@@ -8,8 +8,6 @@
 #include <Psapi.h>
 #include <sddl.h>
 #include <string>
-#include <vector>
-#pragma comment (lib,"advapi32.lib")
 
 #define PROCESS_ARRAY 2048
 
@@ -230,7 +228,7 @@ int LocateWinLogonProcess()
         do {
             if (strcmp(p32.szExeFile, "winlogon.exe")==0)
             {
-                OutputDebugStringA("[+] Located winlogon.exe by process name ");
+                // OutputDebugStringA("[+] Located winlogon.exe by process name ");
                 processWinlogonPid = p32.th32ProcessID;
 
                 return processWinlogonPid;
@@ -243,7 +241,7 @@ int LocateWinLogonProcess()
 }
 
 
-//DWORD GetTokenWithPrivilege(HANDLE* outToken) {
+//DWORD GetTokenWithPrivilege(HANDLE* outToken) {         // this is reserved code/
 //    HANDLE hCurrentProcess = GetCurrentProcess();
 //    HANDLE o_Token = nullptr;
 //    //LPVOID tokenSessionId = nullptr, winlogonTokenSessionId = nullptr;
@@ -356,7 +354,7 @@ void EnableSeTcpPrivilege()
 
             if (!checkToken)
             {
-                OutputDebugStringA("[+] Current process token already includes SeDebugPrivilege\n");
+                // OutputDebugStringA("[+] Current process token already includes SeDebugPrivilege\n");
             }
             else
             {
@@ -370,7 +368,7 @@ void EnableSeTcpPrivilege()
 
                 if (adjustToken != 0)
                 {
-                    OutputDebugStringA("[+] Added SeTcbPrivilege to the current process token");
+                    // OutputDebugStringA("[+] Added SeTcbPrivilege to the current process token");
                 }
             }
             CloseHandle(TokenHandle);
@@ -392,41 +390,41 @@ BOOL StealToken(int TargetPID, HANDLE *outHandle)
 
     if (!hProcess)
     {
-        OutputDebugStringA("[!] Failed to obtain a HANDLE to the target PID");
+        // OutputDebugStringA("[!] Failed to obtain a HANDLE to the target PID");
         return -1;
     }
 
-    OutputDebugStringA("[+] Obtained a HANDLE to the target PID");
+    // OutputDebugStringA("[+] Obtained a HANDLE to the target PID");
 
     OpenToken = OpenProcessToken(hProcess, TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY | TOKEN_QUERY, &TokenHandle);
 
     if (!OpenToken)
     {
-        OutputDebugStringA("[!] Failed to obtain a HANDLE to the target TOKEN");
+        // OutputDebugStringA("[!] Failed to obtain a HANDLE to the target TOKEN");
         //std::cout << GetLastError();
     }
 
-    OutputDebugStringA("[+] Obtained a HANDLE to the target TOKEN");
+    // OutputDebugStringA("[+] Obtained a HANDLE to the target TOKEN");
 
     Impersonate = ImpersonateLoggedOnUser(TokenHandle);
 
     if (!Impersonate)
     {
-        OutputDebugStringA("[!] Failed to impersonate the TOKEN's user");
+        // OutputDebugStringA("[!] Failed to impersonate the TOKEN's user");
         return -1;
     }
 
-    OutputDebugStringA("[+] Impersonated the TOKEN's user");
+    // OutputDebugStringA("[+] Impersonated the TOKEN's user");
 
     Duplicate = DuplicateTokenEx(TokenHandle, TOKEN_ALL_ACCESS, NULL, SecurityImpersonation, TokenImpersonation, &NewToken);
 
     if (!Duplicate)
     {
-        OutputDebugStringA("[!] Failed to duplicate the target TOKEN");
+        // OutputDebugStringA("[!] Failed to duplicate the target TOKEN");
         return -1;
     }
 
-    OutputDebugStringA("[+] Duplicated the target TOKEN");
+    // OutputDebugStringA("[+] Duplicated the target TOKEN");
     bool result = false;
     
     DWORD v24 = 1;
@@ -452,7 +450,7 @@ void GetExecutableDirectory(char* outPath, size_t size) {
         }
     }
     else {
-        OutputDebugStringA("Failed to get executable path.");
+        // OutputDebugStringA("Failed to get executable path.");
         outPath[0] = '\0';
     }
 }
@@ -471,17 +469,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     int v20 = 0;
     if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hCurrentToken)) {
         err = GetLastError();
-        return err;
+        text = _wcsdup(L"ERROR: Need Admin access");
         // goto need admin access text assign
     }
-
-    OutputDebugStringA("Current token info: ");
-    GetTokenInfo(hCurrentToken);
+    ///// Get current process's token information to see its privilege
+    // GetTokenInfo(hCurrentToken);
     if (GetTokenInformation(hCurrentToken, TokenUIAccess, &tokenInfo, 4u, &returnLen))
     {
-        char str[50];
-        sprintf_s(str, sizeof(str), "TokenInfo: %d", tokenInfo);
-        OutputDebugStringA(str);
         err = returnLen;
         v20 = 1;
     }
@@ -523,11 +517,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         int winLogonPID = LocateWinLogonProcess();
         EnableSeTcpPrivilege();
         if (StealToken(winLogonPID, &hNewToken)) {
-            //OutputDebugStringA("Newly created token info: ");
-            GetTokenInfo(hNewToken);
+            // log newly created token information
+            // GetTokenInfo(hNewToken);
             GetStartupInfoW(&startupInfo);
             commandLine = GetCommandLineW();
-            MessageBoxW(NULL, commandLine, L"", MB_OK);
             if (CreateProcessWithTokenW(hNewToken, LOGON_WITH_PROFILE, 0, commandLine, 0, NULL, NULL, &startupInfo, &processInformation)) {
                 CloseHandle(processInformation.hProcess);
                 CloseHandle(processInformation.hThread);
