@@ -1,2 +1,3 @@
 C:\Users\administorrator\source\repos\RedTextDesktopApp\Release\RedTextDesktopApp.exe
 F:\RE_work\InProgress\work_Browsers\Solution\RedTextDesktopApp\Release\RedTextDesktopApp.exe
+F:\RE_work\InProgress\work_Browsers\Solution\RedTextDisplay\Release\RedTextDesktopApp.exe
