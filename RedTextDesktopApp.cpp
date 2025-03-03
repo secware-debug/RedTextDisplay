@@ -40,7 +40,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         // Set text color to black
         SetTextColor(hdc, RGB(255, 0, 0));
         // Set transparent background for text
-        // SetBkMode(hdc, TRANSPARENT);
+        OutputDebugStringW(text);
+        if (text == L"?") {
+            OutputDebugStringA("empty string");
+            //OutputDebugStringW(text);
+            SetBkMode(hdc, TRANSPARENT);
+        }
 
         SelectObject(hdc, g_font);
         // Draw text
@@ -320,7 +325,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         text = _wcsdup(L"ERROR: Need Admin access");
         // goto need admin access text assign
     }
-    ///// Get current process's token information to see its privilege
+    // Get current process's token information to see its privilege
     // GetTokenInfo(hCurrentToken);
     if (GetTokenInformation(hCurrentToken, TokenUIAccess, &tokenInfo, 4u, &returnLen))
     {
@@ -349,7 +354,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 snprintf(fullPath, MAX_PATH, "%s\\%s", exeDir, __argv[1]);
             }*/
 
-            OutputDebugStringA(__argv[1]);
+            // OutputDebugStringA(__argv[1]);
 
             FILE* f = fopen(__argv[1], "rb");
             if (!f)
@@ -358,11 +363,34 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             }
             else
             {
+                // Check for BOM
+                unsigned char bom[2];
+                if (fread(bom, 1, 2, f) != 2) {
+                    text = _wcsdup(L"ERROR: File is too small\n");
+                    fclose(f);
+                }
+
+                int has_bom = (bom[0] == 0xFF && bom[1] == 0xFE); // UTF-16LE BOM
+                if (!has_bom) {
+                    // If no BOM, reset position to start of file
+                    fseek(f, 0, SEEK_SET);
+                }
+
+                // Determine actual content size after skipping BOM (if present)
                 fseek(f, 0, SEEK_END);
-                long size = ftell(f);
-                fseek(f, 0, SEEK_SET);
-                text = (wchar_t*)calloc(size + 2, 1);
-                fread(text, 1, size, f);
+                long size = ftell(f) - (has_bom ? 2 : 0);
+                fseek(f, has_bom ? 2 : 0, SEEK_SET);
+
+                // Ensure buffer is large enough for null termination
+                text = (wchar_t*)calloc((size / sizeof(wchar_t)) + 1, sizeof(wchar_t));
+                if (!text) {
+                    text = _wcsdup(L"ERROR: Memory allocation failed\n");
+                    fclose(f);
+                    return 1;
+                }
+
+                // Read file into the buffer
+                fread(text, sizeof(wchar_t), size / sizeof(wchar_t), f);
                 fclose(f);
             }
         }
@@ -426,7 +454,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
         DEFAULT_PITCH | FF_DONTCARE, "Arial");
 
-    // Show the window.
+    // Show the window
     ShowWindow(hwnd, SW_SHOWNOACTIVATE);
     UpdateWindow(hwnd);
 
