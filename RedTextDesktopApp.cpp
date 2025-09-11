@@ -8,6 +8,11 @@
 #include <Psapi.h>
 #include <sddl.h>
 #include <string>
+#include <wincrypt.h>
+#include <ncryptprotect.h>
+#include <stdlib.h>
+#pragma comment(lib, "crypt32.lib")
+#pragma comment(lib, "ncrypt.lib")
 
 #define PROCESS_ARRAY 2048
 
@@ -15,6 +20,8 @@ HFONT g_font;
 wchar_t* text = NULL;
 HWND g_hWnd = NULL;
 int g_fontSize = 36;
+int g_PosX = 0;
+int g_PosY = 0;
 
 #define WindowClassName "WindowsUpdate"
 
@@ -24,7 +31,7 @@ void OnTopThread(void* args)
     while (1)
     {
         ShowWindow(hwnd, SW_SHOWNOACTIVATE);
-        SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        SetWindowPos(hwnd, HWND_TOPMOST, g_PosX, g_PosY, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         Sleep(10);
     }
 }
@@ -59,7 +66,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
     case WM_CREATE:
     {
         SetLayeredWindowAttributes(hwnd, RGB(255, 0, 128), 0, LWA_COLORKEY);  // 192 out of 255 for semi-transparency
-        SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        SetWindowPos(hwnd, HWND_TOPMOST, g_PosX, g_PosY, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         SetWindowDisplayAffinity(hwnd, 0x11);
         CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)OnTopThread, (void*)hwnd, 0, NULL);
         break;
@@ -335,7 +342,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     else
         err = GetLastError();
     CloseHandle(hCurrentToken);
-
     if (v20 && tokenInfo)
     {
         if (__argc <= 1)
@@ -344,6 +350,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
         else // __argc >= 2
         {
+            //MessageBox(NULL, "", "", MB_OKCANCEL);
             /*char exeDir[MAX_PATH];
             char fullPath[MAX_PATH];
             // Get the executable directory
@@ -421,6 +428,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             g_fontSize = 36;
     }
 
+    if (__argc >= 4)
+    {
+        g_PosX = atoi(__argv[3]);
+        if (g_PosX < 0) g_PosX = 0;
+    }
+
+    if (__argc >= 5)
+    {
+        g_PosY = atoi(__argv[4]);
+        if (g_PosY < 0) g_PosY = 0;
+    }
+
     // Kill old process
     KillPrev();
     if (text == L"close") {
@@ -444,7 +463,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         WindowClassName,
         "",
         WS_POPUP | WS_VISIBLE | WS_SYSMENU,
-        0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) * 3 / 4,
+        g_PosX, g_PosY, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) * 3 / 4,
         NULL, NULL, hInstance, NULL
     );
 
