@@ -20,8 +20,10 @@ HFONT g_font;
 wchar_t* text = NULL;
 HWND g_hWnd = NULL;
 int g_fontSize = 36;
-int g_PosX = 0;
-int g_PosY = 0;
+int g_PosX1 = 0;
+int g_PosY1 = 0;
+int g_PosX2 = 0;
+int g_PosY2 = 0;
 
 #define WindowClassName "WindowsUpdate"
 
@@ -31,7 +33,7 @@ void OnTopThread(void* args)
     while (1)
     {
         ShowWindow(hwnd, SW_SHOWNOACTIVATE);
-        SetWindowPos(hwnd, HWND_TOPMOST, g_PosX, g_PosY, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         Sleep(10);
     }
 }
@@ -57,7 +59,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         SelectObject(hdc, g_font);
         // Draw text
         RECT rect;
-        GetWindowRect(hwnd, &rect);
+        //GetWindowRect(hwnd, &rect);
+        rect.left = g_PosX1; rect.top = g_PosY1;
+        rect.right = g_PosX2; rect.bottom = g_PosY2;
         DrawTextW(hdc, text, -1, &rect, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
 
         EndPaint(hwnd, &ps);
@@ -66,7 +70,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
     case WM_CREATE:
     {
         SetLayeredWindowAttributes(hwnd, RGB(255, 0, 128), 0, LWA_COLORKEY);  // 192 out of 255 for semi-transparency
-        SetWindowPos(hwnd, HWND_TOPMOST, g_PosX, g_PosY, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         SetWindowDisplayAffinity(hwnd, 0x11);
         CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)OnTopThread, (void*)hwnd, 0, NULL);
         break;
@@ -430,14 +434,26 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     if (__argc >= 4)
     {
-        g_PosX = atoi(__argv[3]);
-        if (g_PosX < 0) g_PosX = 0;
+        g_PosX1 = atoi(__argv[3]);
+        if (g_PosX1 < 0) g_PosX1 = 0;
     }
 
     if (__argc >= 5)
     {
-        g_PosY = atoi(__argv[4]);
-        if (g_PosY < 0) g_PosY = 0;
+        g_PosY1 = atoi(__argv[4]);
+        if (g_PosY1 < 0) g_PosY1 = 0;
+    }
+
+    if (__argc >= 6)
+    {
+        g_PosX2 = atoi(__argv[5]);
+        if (g_PosX2 <= 0) g_PosX2 = GetSystemMetrics(SM_CXSCREEN);
+    }
+
+    if (__argc >= 7)
+    {
+        g_PosY2 = atoi(__argv[6]);
+        if (g_PosY2 <= 0) g_PosY2 = GetSystemMetrics(SM_CYSCREEN) * 3/4;
     }
 
     // Kill old process
@@ -463,7 +479,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         WindowClassName,
         "",
         WS_POPUP | WS_VISIBLE | WS_SYSMENU,
-        g_PosX, g_PosY, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) * 3 / 4,
+        0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) * 3 / 4,
         NULL, NULL, hInstance, NULL
     );
 
