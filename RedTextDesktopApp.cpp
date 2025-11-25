@@ -24,6 +24,10 @@ int g_PosX1 = 0;
 int g_PosY1 = 0;
 int g_PosX2 = 0;
 int g_PosY2 = 0;
+DWORD g_BkColor = 0xFFFF0080;
+DWORD g_TxtColor = 0xFFFF0000;
+bool g_BkExist = false;
+int g_Alpha = 40;
 
 #define WindowClassName "WindowsUpdate"
 
@@ -46,30 +50,36 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
 
+        if (g_BkExist) {
+            SetBkColor(hdc, RGB(
+                (BYTE)((g_BkColor >> 16) & 0xFF),
+                (BYTE)((g_BkColor >> 8) & 0xFF),
+                (BYTE)(g_BkColor & 0xFF)
+            ));
+        }
         // Set text color to black
-        SetTextColor(hdc, RGB(255, 0, 0));
+        SetTextColor(hdc, RGB((BYTE)((g_TxtColor >> 16) & 0xFF), (BYTE)((g_TxtColor >> 8) & 0xFF), (BYTE)(g_TxtColor & 0xFF)));
         // Set transparent background for text
-        OutputDebugStringW(text);
-        if (text == L"?") {
-            OutputDebugStringA("empty string");
+        //OutputDebugStringW(text);
+        if (text == L"?" || !g_BkExist) {
+            //OutputDebugStringA("empty string");
             //OutputDebugStringW(text);
             SetBkMode(hdc, TRANSPARENT);
         }
-
         SelectObject(hdc, g_font);
         // Draw text
         RECT rect;
         //GetWindowRect(hwnd, &rect);
         rect.left = g_PosX1; rect.top = g_PosY1;
         rect.right = g_PosX2; rect.bottom = g_PosY2;
-        DrawTextW(hdc, text, -1, &rect, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
+        DrawTextW(hdc, text, -1, &rect, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX | DT_EDITCONTROL);
 
         EndPaint(hwnd, &ps);
         break;
     }
     case WM_CREATE:
     {
-        SetLayeredWindowAttributes(hwnd, RGB(255, 0, 128), 0, LWA_COLORKEY);  // 192 out of 255 for semi-transparency
+        SetLayeredWindowAttributes(hwnd, RGB(255, 0, 128), g_Alpha, LWA_COLORKEY | LWA_ALPHA);  // 192 out of 255 for semi-transparency
         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         SetWindowDisplayAffinity(hwnd, 0x11);
         CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)OnTopThread, (void*)hwnd, 0, NULL);
@@ -447,13 +457,39 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     if (__argc >= 6)
     {
         g_PosX2 = atoi(__argv[5]);
-        if (g_PosX2 <= 0) g_PosX2 = GetSystemMetrics(SM_CXSCREEN);
+        if (g_PosX2 <= 0 || g_PosX2 > GetSystemMetrics(SM_CXSCREEN)-50 ) g_PosX2 = GetSystemMetrics(SM_CXSCREEN)-50;
     }
 
     if (__argc >= 7)
     {
         g_PosY2 = atoi(__argv[6]);
-        if (g_PosY2 <= 0) g_PosY2 = GetSystemMetrics(SM_CYSCREEN) * 3/4;
+        if (g_PosY2 <= 0 || g_PosY2 > GetSystemMetrics(SM_CYSCREEN)-50 ) g_PosY2 = GetSystemMetrics(SM_CYSCREEN)-50;
+    }
+
+    if (__argc >= 8)
+    {
+        g_TxtColor = (DWORD)strtoul(__argv[7], NULL, 0);
+    }
+
+    if (__argc >= 9)
+    {
+        const char* arg = __argv[8];
+        if (_stricmp(arg, "true") == 0 || strcmp(arg, "1") == 0)
+            g_BkExist = true;
+        else
+            g_BkExist = false;
+    }
+
+    if (__argc >= 10)
+    {
+        g_BkColor = (DWORD)strtoul(__argv[9], NULL, 0);
+    }
+
+    if (__argc >= 11)
+    {
+        g_Alpha = atoi(__argv[10]);
+        if (g_Alpha > 255) g_Alpha = 255;
+        if (g_Alpha < 0) g_Alpha = 0;
     }
 
     // Kill old process
@@ -468,7 +504,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc = WindowProc;
     wc.hInstance = hInstance;
-    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);//(BYTE)((g_BkColor >> 16) & 0xFF), (BYTE)((g_BkColor >> 8) & 0xFF), (BYTE)(g_BkColor & 0xFF)
     wc.hbrBackground = CreateSolidBrush(RGB(255, 0, 128));
     wc.lpszClassName = WindowClassName;
     RegisterClassExA(&wc);
@@ -479,9 +515,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         WindowClassName,
         "",
         WS_POPUP | WS_VISIBLE | WS_SYSMENU,
-        0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) * 3 / 4,
+        0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN),
         NULL, NULL, hInstance, NULL
     );
+
+    // Make it layered
+    LONG exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+    SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
 
     g_hWnd = hwnd;
 
